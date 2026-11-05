@@ -115,22 +115,8 @@ class ApiClient(private val rawBaseUrl: String, private var cookie: String? = nu
         }
     }
 
-    private fun parsePacket(p: JSONObject, owner: String): SignalMessage {
-        val details = p.optJSONObject("details") ?: JSONObject()
-        fun num(o: JSONObject, k: String): Double? =
-            if (o.has(k) && !o.isNull(k)) o.optDouble(k).takeIf { !it.isNaN() } else null
-        return SignalMessage(
-            id = p.optLong("seq", System.currentTimeMillis()).toString() + ":" + owner,
-            owner = owner,
-            symbol = p.optString("symbol", ""),
-            timeframe = p.optString("interval", ""),
-            price = num(details, "price"),
-            confidence = num(details, "confidence"),
-            upperEdge = details.optJSONObject("upper")?.let { num(it, "low") },
-            lowerEdge = details.optJSONObject("lower")?.let { num(it, "high") },
-            receivedAt = SignalMessage.normalizeTimestamp(p.optLong("created", System.currentTimeMillis()))
-        )
-    }
+    private fun parsePacket(p: JSONObject, owner: String): SignalMessage =
+        com.tradingindicator.alerts.data.SignalPacket.parse(p, owner)
 
     fun fetchFirebaseConfig(): FirebaseConfig {
         val req = builder("$baseUrl/api/android/config").get().build()

@@ -2,6 +2,11 @@ package com.tradingindicator.alerts.push
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
+import android.net.Uri
+import com.tradingindicator.alerts.MainActivity
+import com.tradingindicator.alerts.data.Prefs
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.RingtoneManager
@@ -14,7 +19,16 @@ import java.util.Locale
 object AlertNotifier {
     fun show(context: Context, item: SignalMessage, direction: String?, sound: Boolean) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = if (sound) "alerts_sound_v2" else "alerts_silent"
+        if (!manager.areNotificationsEnabled()) return
+        val customSound = Prefs(context).customSoundUri?.takeIf { value ->
+            runCatching {
+                context.contentResolver.openAssetFileDescriptor(Uri.parse(value), "r")?.use { true } ?: false
+            }.getOrDefault(false)
+        }
+        val soundUri = customSound?.let(Uri::parse)
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val channelId = if (!sound) "alerts_silent" else if (customSound == null) "alerts_sound_v2"
+            else "alerts_custom_${java.security.MessageDigest.getInstance("SHA-256").digest(customSound.toByteArray()).take(8).joinToString("") { "%02x".format(it) }}"
         if (manager.getNotificationChannel(channelId) == null) {
             val channel = NotificationChannel(
                 channelId,
@@ -23,7 +37,7 @@ object AlertNotifier {
             )
             if (sound) {
                 channel.setSound(
-                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                    soundUri,
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -50,19 +64,19 @@ object AlertNotifier {
             "Timeframe: ${item.timeframe.ifBlank { "—" }}",
             "Price: ${value(item.price)}",
             "Confidence: ${item.confidence?.let { "${it.toInt()}%" } ?: "—"}",
-            "Upper level: ${value(item.upperEdge)}",
-            "Lower level: ${value(item.lowerEdge)}",
+            "Sell OZ upper: ${value(item.upperEdge)}",
+            "Buy OZ lower: ${value(item.lowerEdge)}",
             "Time: $timestamp"
         )
-        val style = NotificationCompat.InboxStyle()
+        val style = NotificationCompat.BigTextStyle()
             .setBigContentTitle(title)
-            .setSummaryText(timestamp)
-        lines.forEach(style::addLine)
+            .bigText(lines.joinToString("\n"))
 
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
-            .setContentText(lines.first())
+            .setContentText("Price: ${value(item.price)} · Confidence: ${item.confidence?.let { "${it.toInt()}%" } ?: "—"}")
+            .setContentIntent(PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             .setStyle(style)
             .setWhen(item.receivedAt)
             .setShowWhen(true)

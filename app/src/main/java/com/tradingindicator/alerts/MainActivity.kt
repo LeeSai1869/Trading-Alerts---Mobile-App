@@ -39,6 +39,12 @@ class MainActivity : AppCompatActivity() {
     private val pickSoundLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK && result.data?.data != null) {
             val uri = result.data!!.data.toString()
+            try {
+                contentResolver.takePersistableUriPermission(result.data!!.data!!, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: SecurityException) {
+                Toast.makeText(this, "Choose a sound from a document provider", Toast.LENGTH_LONG).show()
+                return@registerForActivityResult
+            }
             prefs.customSoundUri = uri
             Toast.makeText(this, "Custom sound selected!", Toast.LENGTH_SHORT).show()
         }
@@ -80,7 +86,7 @@ class MainActivity : AppCompatActivity() {
         val btn = Button(this).apply { text = "Sign in" }
         val status = TextView(this).apply { setTextColor(Color.RED) }
         val networkNote = TextView(this).apply {
-            text = "For the suggested .ts.net address, connect this phone to the same Tailscale network."
+            text = "Enter your alert server’s HTTPS address. A public HTTPS address works without Tailscale; a private .ts.net address requires it."
             textSize = 14f
         }
         lp.addView(networkNote); lp.addView(url); lp.addView(user); lp.addView(pass); lp.addView(btn); lp.addView(status)
@@ -138,6 +144,7 @@ class MainActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     if (authenticated) {
                         showInbox()
+                        configurePush(ApiClient(baseUrl, cookie))
                     } else {
                         prefs.logout()
                         showLogin("Your sign-in expired. Please sign in again.")
@@ -180,6 +187,9 @@ class MainActivity : AppCompatActivity() {
             try {
                 val cfg = api.fetchFirebaseConfig()
                 if (!cfg.ready) return@launch
+                getSharedPreferences("push_config", MODE_PRIVATE).edit()
+                    .putString("app_id", cfg.appId).putString("project_id", cfg.projectId)
+                    .putString("api_key", cfg.apiKey).putString("sender_id", cfg.senderId).commit()
                 val opts = FirebaseOptions.Builder()
                     .setProjectId(cfg.projectId)
                     .setApplicationId(cfg.appId)
@@ -187,13 +197,13 @@ class MainActivity : AppCompatActivity() {
                     .apply { if (cfg.senderId.isNotBlank()) setGcmSenderId(cfg.senderId) }
                     .build()
                 withContext(Dispatchers.Main) {
-                    FirebaseApp.initializeApp(this@MainActivity, opts)
+                    if (FirebaseApp.getApps(this@MainActivity).isEmpty()) FirebaseApp.initializeApp(this@MainActivity, opts)
                 }
                 FirebaseMessaging.getInstance().token
                     .addOnSuccessListener { token ->
                         scope.launch {
                             try {
-                                api.registerToken(token, cfg.packageName, true, true)
+                                api.registerToken(token, cfg.packageName, prefs.notificationsOn, prefs.soundOn)
                             } catch (e: Exception) {
                                 android.util.Log.w("PushSetup", "Token registration failed", e)
                             }
@@ -269,8 +279,8 @@ class MainActivity : AppCompatActivity() {
             item.addView(toggle)
             globalControls.addView(item)
         }
-        addGlobalToggle("Notifications", prefs.notificationsOn) { prefs.notificationsOn = it }
-        addGlobalToggle("Sound", prefs.soundOn) { prefs.soundOn = it }
+        addGlobalToggle("Notifications", prefs.notificationsOn) { prefs.notificationsOn = it; configurePush(ApiClient(prefs.baseUrl, prefs.cookie)) }
+        addGlobalToggle("Sound", prefs.soundOn) { prefs.soundOn = it; configurePush(ApiClient(prefs.baseUrl, prefs.cookie)) }
         lp.addView(globalControls)
 
         val listContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 32, 0, 0) }
@@ -298,11 +308,26 @@ class MainActivity : AppCompatActivity() {
         val soundBtn = Button(this).apply { text = "Pick Custom Sound from Phone"; setPadding(0, 16, 0, 16) }
         
         lp.addView(coinBtn); lp.addView(tfBtn); lp.addView(soundBtn)
+        lp.addView(Button(this).apply {
+            text = "Test notification sound"
+            setOnClickListener { postTestNotification() }
+        })
+        lp.addView(Button(this).apply {
+            text = "Android notification settings"
+            setOnClickListener {
+                startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName))
+            }
+        })
+        lp.addView(Button(this).apply {
+            text = "Use default notification sound"
+            setOnClickListener { prefs.customSoundUri = null; Toast.makeText(this@MainActivity, "Default sound selected", Toast.LENGTH_SHORT).show() }
+        })
 
         coinBtn.setOnClickListener { showSubSettings("Coins", listOf("HYPEUSDT", "BTCUSDT", "ETHUSDT", "SOLUSDT"), prefs.mutedSymbols, true) }
         tfBtn.setOnClickListener { showSubSettings("Timeframes", listOf("1m", "5m", "15m", "30m", "1h", "4h"), prefs.mutedTimeframes, false) }
         soundBtn.setOnClickListener {
-            val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "audio/*" }
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).apply { type = "audio/*" }
             pickSoundLauncher.launch(intent)
         }
 
@@ -411,7 +436,7 @@ class MainActivity : AppCompatActivity() {
         val pStr = m.price?.let { String.format(java.util.Locale.US, "%.4f", it) } ?: "—"
         val uStr = m.upperEdge?.let { String.format(java.util.Locale.US, "%.4f", it) } ?: "—"
         val lStr = m.lowerEdge?.let { String.format(java.util.Locale.US, "%.4f", it) } ?: "—"
-        text = "${m.symbol} ${m.timeframe}  price $pStr  conf ${m.confidence?.toInt() ?: "—"}%\n▲ $uStr   ▼ $lStr"
+        text = "${m.symbol} ${m.timeframe}  price $pStr  conf ${m.confidence?.toInt() ?: "—"}%\nSell OZ upper $uStr · Buy OZ lower $lStr"
         textSize = 16f
         setPadding(0, 24, 0, 24)
     }
