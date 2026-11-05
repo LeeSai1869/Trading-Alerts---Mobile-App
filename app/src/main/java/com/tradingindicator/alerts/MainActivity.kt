@@ -452,15 +452,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderHistory(container: LinearLayout, items: List<SignalMessage>) {
         container.removeAllViews()
-        if (items.isEmpty()) {
+        val uniqueItems = com.tradingindicator.alerts.data.AlertPresentation.uniqueItems(items)
+        if (uniqueItems.isEmpty()) {
             container.addView(TextView(this).apply { text = "No messages found in the last 24h." })
             return
         }
 
         val now = System.currentTimeMillis()
-        val recent = items.filter { now - it.receivedAt <= TimeUnit.HOURS.toMillis(1) }
-        val oneHour = items.filter { now - it.receivedAt in TimeUnit.HOURS.toMillis(1) until TimeUnit.HOURS.toMillis(12) }
-        val twelveHours = items.filter { now - it.receivedAt in TimeUnit.HOURS.toMillis(12) until TimeUnit.DAYS.toMillis(1) }
+        val recent = uniqueItems.filter { now - it.receivedAt < TimeUnit.HOURS.toMillis(1) }
+        val oneHour = uniqueItems.filter { now - it.receivedAt in TimeUnit.HOURS.toMillis(1) until TimeUnit.HOURS.toMillis(12) }
+        val twelveHours = uniqueItems.filter { now - it.receivedAt in TimeUnit.HOURS.toMillis(12) until TimeUnit.DAYS.toMillis(1) }
 
         if (recent.isNotEmpty()) {
             container.addView(createHeader("Recent"))

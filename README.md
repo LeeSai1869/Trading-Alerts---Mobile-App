@@ -11,8 +11,8 @@ Use a full Java 21 JDK, Android SDK platform 36 and build-tools 34.0.0.
 ./gradlew exportDebugApk testDebugUnitTest
 ```
 
-The uniquely named installable package for v1.5 is
-`app/build/outputs/apk/share/TradingAlerts-1.5-build6.apk`.
+The uniquely named installable package for v1.6 is
+`app/build/outputs/apk/share/TradingAlerts-1.6-build7.apk`.
 `exportDebugApk` builds before copying and includes version and build number in
 the filename. Previous exported versions are retained.
 It includes app dependencies. Google Play services, notification permission,
@@ -98,3 +98,9 @@ modifying backend files, alert history, registrations or delivery cursors.
 Without `--send`, it only lists matching devices. It does not test signal generation
 or the backend delivery queue. FCM acceptance is not proof of phone receipt.
 Capture phone timing with `adb logcat -v time -s AlertDelivery PushSetup`.
+
+The inbox displays one card for BUY/SELL entries whose owner, symbol, timeframe,
+direction, exact signal timestamp, price, confidence and opportunity-zone levels
+all match, even if separate server rules assigned different event IDs. Different
+candles or details remain separate. Raw history is retained, and incomplete or
+non-trading events are not merged just because they look similar.
