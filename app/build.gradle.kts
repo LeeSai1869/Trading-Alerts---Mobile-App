@@ -44,9 +44,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }
 
-dependencies {
-    implementation("androidx.core:core-ktx:1.13.1")
-}
 
 // Export a clearly versioned package so older app-debug.apk copies cannot be confused.
 tasks.register<Copy>("exportDebugApk") {

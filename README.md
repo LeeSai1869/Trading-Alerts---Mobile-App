@@ -64,3 +64,18 @@ endpoint or include sender service-account keys in the app.
 TradingBotV1 is not modified by this app upgrade. End-to-end latency depends on
 its event generation, delivery queue, connectivity, Firebase and phone settings;
 the APK cannot eliminate delays upstream.
+
+## Folder layout
+
+- `app/src/`: app source, resources and tests.
+- `gradle/`, `gradlew`, `gradlew.bat`: required Gradle wrapper, not duplicate builds.
+- `temporary-downloads/`: current verified cloud-built test APK. It is signed
+  with the cloud debug key; a Mac-built package uses that Mac's debug key.
+- `app/build/` and root `build/`: generated app outputs and project reports.
+- `.gradle/` and `.kotlin/`: generated tool caches. Do not commit them.
+
+To remove generated build outputs, run `./gradlew clean`. This does not remove
+source, signing keys, the APK in `temporary-downloads/`, or phone data. Building
+recreates the output folders. Do not delete `gradle/`, which contains the wrapper.
+New releases use a new versioned filename. Superseded download APKs can be removed
+in a separate cleanup, as in this change; Git history retains earlier versions.
