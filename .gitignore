@@ -11,3 +11,7 @@ local.properties
 key.properties
 keystore.properties
 google-services.json
+
+# Local Python test/helper bytecode
+__pycache__/
+*.pyc

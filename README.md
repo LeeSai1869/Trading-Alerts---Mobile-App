@@ -79,3 +79,22 @@ source, signing keys, the APK in `temporary-downloads/`, or phone data. Building
 recreates the output folders. Do not delete `gradle/`, which contains the wrapper.
 New releases use a new versioned filename. Superseded download APKs can be removed
 in a separate cleanup, as in this change; Git history retains earlier versions.
+
+## Locked-screen Android push test
+
+From the app checkout on the laptop, with the phone connected/signed in,
+notifications enabled and screen locked:
+
+```sh
+python3 tools/send_android_test.py --send
+```
+
+Enter the local TradingBotV1 folder path and your app username when prompted.
+Use the same Python environment and `TRADINGBOT_DATA_DIR`, if set, as your
+running laptop backend. The helper reads existing Firebase configuration and
+registrations locally; never paste service-account credentials or tokens into chat.
+It sends one visibly labeled TEST packet to the selected account/device, without
+modifying backend files, alert history, registrations or delivery cursors.
+Without `--send`, it only lists matching devices. It does not test signal generation
+or the backend delivery queue. FCM acceptance is not proof of phone receipt.
+Capture phone timing with `adb logcat -v time -s AlertDelivery PushSetup`.
