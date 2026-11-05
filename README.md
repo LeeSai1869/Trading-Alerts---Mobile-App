@@ -11,8 +11,8 @@ Use a full Java 21 JDK, Android SDK platform 36 and build-tools 34.0.0.
 ./gradlew exportDebugApk testDebugUnitTest
 ```
 
-The uniquely named installable package for v1.4 is
-`app/build/outputs/apk/share/TradingAlerts-1.4-build5.apk`.
+The uniquely named installable package for v1.5 is
+`app/build/outputs/apk/share/TradingAlerts-1.5-build6.apk`.
 `exportDebugApk` builds before copying and includes version and build number in
 the filename. Previous exported versions are retained.
 It includes app dependencies. Google Play services, notification permission,
@@ -27,6 +27,12 @@ For long-term team distribution, use a backed-up private release signing key;
 the debug APK is intended for testing.
 
 ## Notifications
+
+The inbox and expanded notifications use the same presentation: BUY/SELL,
+symbol, timeframe, price, confidence, Sell OZ upper, Buy OZ lower and signal time.
+The database update preserves existing alerts and adds the saved direction.
+Previously cached direction is unknown until those alerts refresh from server
+history; missing evidence displays as a dash rather than an inferred value.
 
 Settings offers a local sound test, the phone’s native notification-tone picker,
 default/custom sound selection, a notification-volume readout, and shortcuts

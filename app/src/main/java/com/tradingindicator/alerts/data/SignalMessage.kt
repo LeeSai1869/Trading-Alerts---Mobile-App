@@ -14,7 +14,8 @@ data class SignalMessage(
     val upperEdge: Double?,
     val lowerEdge: Double?,
     val receivedAt: Long,
-    val hidden: Boolean = false
+    val hidden: Boolean = false,
+    val direction: String? = null
 ) {
     companion object {
         fun normalizeTimestamp(timestamp: Long): Long =

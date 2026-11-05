@@ -11,6 +11,7 @@ object SignalPacket {
         return SignalMessage(
             id = p.optLong("seq", System.currentTimeMillis()).toString() + ":" + owner,
             owner = owner,
+            direction = direction(p, details, emptyMap()),
             symbol = p.optString("symbol", ""),
             timeframe = p.optString("interval", ""),
             price = num(details, "price"),

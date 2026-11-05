@@ -12,9 +12,6 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import androidx.core.app.NotificationCompat
 import com.tradingindicator.alerts.data.SignalMessage
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 object AlertNotifier {
     private fun customSound(context: Context): String? = Prefs(context).customSoundUri?.takeIf { value ->
@@ -54,25 +51,8 @@ object AlertNotifier {
             manager.createNotificationChannel(channel)
         }
 
-        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", Locale.getDefault())
-            .format(Date(item.receivedAt))
-        fun value(number: Double?): String =
-            number?.let { String.format(Locale.getDefault(), "%.4f", it) } ?: "—"
-        val title = listOfNotNull(
-            direction,
-            item.symbol.takeIf { it.isNotBlank() },
-            item.timeframe.takeIf { it.isNotBlank() }
-        ).joinToString(" · ").ifBlank { "Trading alert" }
-        val lines = listOf(
-            "Signal: ${direction ?: "—"}",
-            "Symbol: ${item.symbol.ifBlank { "—" }}",
-            "Timeframe: ${item.timeframe.ifBlank { "—" }}",
-            "Price: ${value(item.price)}",
-            "Confidence: ${item.confidence?.let { "${it.toInt()}%" } ?: "—"}",
-            "Sell OZ upper: ${value(item.upperEdge)}",
-            "Buy OZ lower: ${value(item.lowerEdge)}",
-            "Time: $timestamp"
-        )
+        val title = com.tradingindicator.alerts.data.AlertPresentation.title(item, direction)
+        val lines = com.tradingindicator.alerts.data.AlertPresentation.lines(item, direction)
         val style = NotificationCompat.BigTextStyle()
             .setBigContentTitle(title)
             .bigText(lines.joinToString("\n"))
@@ -80,7 +60,7 @@ object AlertNotifier {
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
-            .setContentText("Price: ${value(item.price)} · Confidence: ${item.confidence?.let { "${it.toInt()}%" } ?: "—"}")
+            .setContentText("${lines[3]} · ${lines[4]}")
             .setContentIntent(PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             .setStyle(style)
             .setWhen(item.receivedAt)

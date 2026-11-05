@@ -16,7 +16,7 @@ class MessagingService : FirebaseMessagingService() {
         val eventJson = d["event"] ?: return
         val p = runCatching { JSONObject(eventJson) }.getOrNull() ?: return
         val direction = com.tradingindicator.alerts.data.SignalPacket.direction(p, p.optJSONObject("details") ?: JSONObject(), d)
-        val item = com.tradingindicator.alerts.data.SignalPacket.parse(p, owner)
+        val item = com.tradingindicator.alerts.data.SignalPacket.parse(p, owner).copy(direction = direction)
         android.util.Log.i("AlertDelivery", "FCM received: priority=${msg.priority}, transportDelayMs=${if (msg.sentTime > 0) System.currentTimeMillis() - msg.sentTime else -1}, eventAgeMs=${System.currentTimeMillis() - item.receivedAt}")
         runBlocking { AppDatabase.get(this@MessagingService).signalDao().insertAll(listOf(item)) }
         if (item.symbol in prefs.mutedSymbols || item.timeframe in prefs.mutedTimeframes) return

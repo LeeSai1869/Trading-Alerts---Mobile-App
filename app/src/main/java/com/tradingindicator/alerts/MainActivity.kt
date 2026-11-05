@@ -484,12 +484,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun render(m: SignalMessage): TextView = TextView(this).apply {
-        val pStr = m.price?.let { String.format(java.util.Locale.US, "%.4f", it) } ?: "—"
-        val uStr = m.upperEdge?.let { String.format(java.util.Locale.US, "%.4f", it) } ?: "—"
-        val lStr = m.lowerEdge?.let { String.format(java.util.Locale.US, "%.4f", it) } ?: "—"
-        text = "${m.symbol} ${m.timeframe}  price $pStr  conf ${m.confidence?.toInt() ?: "—"}%\nSell OZ upper $uStr · Buy OZ lower $lStr"
+        val title = com.tradingindicator.alerts.data.AlertPresentation.title(m)
+        val body = com.tradingindicator.alerts.data.AlertPresentation.lines(m).joinToString("\n")
+        text = android.text.SpannableString("$title\n$body").apply {
+            setSpan(android.text.style.StyleSpan(Typeface.BOLD), 0, title.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
         textSize = 16f
-        setPadding(0, 24, 0, 24)
+        setLineSpacing(dp(4).toFloat(), 1f)
+        setPadding(dp(16), dp(16), dp(16), dp(16))
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }
+        background = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(12).toFloat()
+            setStroke(dp(1), Color.parseColor("#808080"))
+        }
     }
 
     override fun onDestroy() { scope.cancel(); super.onDestroy() }
