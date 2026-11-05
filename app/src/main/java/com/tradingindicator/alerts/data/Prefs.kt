@@ -41,6 +41,10 @@ class Prefs(ctx: Context) {
         get() = (sp.getString("muted_timeframes", "") ?: "").split(",").filter { it.isNotBlank() }.toMutableSet()
         set(v) { sp.edit().putString("muted_timeframes", v.joinToString(",")).apply() }
 
+    var cachedAlertCatalog: String?
+        get() = if (sp.getString("catalog_server", null) == baseUrl) sp.getString("alert_catalog", null) else null
+        set(value) { sp.edit().putString("catalog_server", baseUrl).putString("alert_catalog", value).apply() }
+
     fun logout() {
         sp.edit().remove("cookie").remove("username").apply()
     }

@@ -19,6 +19,10 @@ class MessagingService : FirebaseMessagingService() {
         val item = com.tradingindicator.alerts.data.SignalPacket.parse(p, owner).copy(direction = direction)
         android.util.Log.i("AlertDelivery", "FCM received: priority=${msg.priority}, transportDelayMs=${if (msg.sentTime > 0) System.currentTimeMillis() - msg.sentTime else -1}, eventAgeMs=${System.currentTimeMillis() - item.receivedAt}")
         runBlocking { AppDatabase.get(this@MessagingService).signalDao().insertAll(listOf(item)) }
+        if (!com.tradingindicator.alerts.data.NotificationPolicy.isFresh(item, System.currentTimeMillis())) {
+            android.util.Log.i("AlertDelivery", "History saved; notification suppressed because signal is over five minutes old")
+            return
+        }
         if (item.symbol in prefs.mutedSymbols || item.timeframe in prefs.mutedTimeframes) return
         val sound = d["sound"] != "false" && prefs.soundOn
         if (prefs.notificationsOn) AlertNotifier.show(this, item, direction, sound)

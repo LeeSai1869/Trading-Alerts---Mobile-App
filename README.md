@@ -11,8 +11,8 @@ Use a full Java 21 JDK, Android SDK platform 36 and build-tools 34.0.0.
 ./gradlew exportDebugApk testDebugUnitTest
 ```
 
-The uniquely named installable package for v1.6 is
-`app/build/outputs/apk/share/TradingAlerts-1.6-build7.apk`.
+The uniquely named installable package for v1.7 is
+`app/build/outputs/apk/share/TradingAlerts-1.7-build8.apk`.
 `exportDebugApk` builds before copying and includes version and build number in
 the filename. Previous exported versions are retained.
 It includes app dependencies. Google Play services, notification permission,
@@ -111,3 +111,15 @@ using the backend's Python. It reads the queue database in read-only mode and
 reports mobile eligibility, expiry, cursors and retry counters without tokens,
 private configuration or raw error contents. No APK reinstall is needed for
 these laptop tools. Configuration readiness does not prove the live worker runs.
+
+Coin and timeframe settings load the full authenticated `/api/alerts/catalog`
+list from the laptop rather than a four-coin sample. Settings refresh when opened,
+offer manual refresh and retain the last successful list for the same server when
+offline. Existing mute choices are preserved. A listed coin does not itself enable
+signal calculation or server delivery for that coin.
+
+Push signals older than five minutes by their actual signal timestamp are saved
+in history without posting a notification. This prevents a newly generated event
+for an old candle from sounding as a fresh trade. Where no signal timestamp exists,
+the existing sender creation timestamp is used. Previously delivered notifications
+are not withdrawn by the update.

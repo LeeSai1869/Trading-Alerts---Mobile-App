@@ -375,8 +375,8 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { prefs.customSoundUri = null; Toast.makeText(this@MainActivity, "Default sound selected", Toast.LENGTH_SHORT).show() }
         })
 
-        coinBtn.setOnClickListener { showSubSettings("Coins", listOf("HYPEUSDT", "BTCUSDT", "ETHUSDT", "SOLUSDT"), prefs.mutedSymbols, true) }
-        tfBtn.setOnClickListener { showSubSettings("Timeframes", listOf("1m", "5m", "15m", "30m", "1h", "4h"), prefs.mutedTimeframes, false) }
+        coinBtn.setOnClickListener { showSubSettings("Coins", true) }
+        tfBtn.setOnClickListener { showSubSettings("Timeframes", false) }
         soundBtn.setOnClickListener {
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).apply { type = "audio/*" }
             pickSoundLauncher.launch(intent)
@@ -391,26 +391,75 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun showSubSettings(titleStr: String, items: List<String>, mutedSet: MutableSet<String>, isCoin: Boolean) {
+    private fun showSubSettings(titleStr: String, isCoin: Boolean) {
         val scroll = ScrollView(this)
-        val lp = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(32, 96, 32, 32) }
+        val lp = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(24), dp(16), dp(24))
+        }
         scroll.addView(lp)
         setContentView(scroll)
-
-        val backBtn = Button(this).apply { text = "← Back to Settings" }
-        lp.addView(backBtn)
-        backBtn.setOnClickListener { showSettingsMenu() }
-
-        lp.addView(TextView(this).apply { text = "Manage $titleStr"; textSize = 22f; setPadding(0, 32, 0, 16) })
-
-        items.forEach { item ->
-            val sw = createBlueSwitch(item, !mutedSet.contains(item))
-            sw.setOnCheckedChangeListener { _, isChecked ->
-                if (isChecked) mutedSet.remove(item) else mutedSet.add(item)
-                if (isCoin) prefs.mutedSymbols = mutedSet else prefs.mutedTimeframes = mutedSet
+        lp.addView(Button(this).apply {
+            text = "← Back to Settings"
+            setOnClickListener { showSettingsMenu() }
+        })
+        lp.addView(TextView(this).apply { text = "Manage $titleStr"; textSize = 22f })
+        val status = TextView(this)
+        lp.addView(status)
+        val refresh = Button(this).apply { text = "Refresh list" }
+        lp.addView(refresh)
+        val rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        lp.addView(rows)
+        fun display(catalog: com.tradingindicator.alerts.data.AlertCatalog) {
+            rows.removeAllViews()
+            val items = if (isCoin) catalog.symbols else catalog.intervals
+            val mutedSet = if (isCoin) prefs.mutedSymbols else prefs.mutedTimeframes
+            status.text = if (items.isEmpty()) "No $titleStr available from the server." else "${items.size} $titleStr"
+            items.forEach { item ->
+                rows.addView(createBlueSwitch(item, item !in mutedSet).apply {
+                    setOnCheckedChangeListener { _, checked ->
+                        // Read current preferences so refreshes cannot restore stale toggle state.
+                        val muted = if (isCoin) prefs.mutedSymbols else prefs.mutedTimeframes
+                        if (checked) muted.remove(item) else muted.add(item)
+                        if (isCoin) prefs.mutedSymbols = muted else prefs.mutedTimeframes = muted
+                    }
+                })
             }
-            lp.addView(sw)
         }
+        val cached = prefs.cachedAlertCatalog?.let {
+            runCatching { com.tradingindicator.alerts.data.AlertCatalog.parse(org.json.JSONObject(it)) }.getOrNull()
+        }
+        if (cached != null) display(cached)
+        fun load() {
+            refresh.isEnabled = false
+            status.text = if (rows.childCount > 0) "Refreshing $titleStr…" else "Loading $titleStr…"
+            val server = prefs.baseUrl
+            val cookie = prefs.cookie
+            scope.launch {
+                try {
+                    val catalog = ApiClient(server, cookie).fetchAlertCatalog()
+                    withContext(Dispatchers.Main) {
+                        if (status.isAttachedToWindow && prefs.baseUrl == server) {
+                            prefs.cachedAlertCatalog = catalog.toJson()
+                            display(catalog)
+                            refresh.isEnabled = true
+                        }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        if (status.isAttachedToWindow) {
+                            status.text = if (rows.childCount > 0) "Showing saved list. Refresh failed: ${e.message}"
+                                else "Could not load $titleStr: ${e.message}. Check your server connection and retry."
+                            refresh.isEnabled = true
+                        }
+                    }
+                }
+            }
+        }
+        refresh.setOnClickListener { load() }
+        load()
     }
 
     private fun loadHistory(container: LinearLayout) {

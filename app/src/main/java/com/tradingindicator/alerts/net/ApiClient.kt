@@ -118,6 +118,15 @@ class ApiClient(private val rawBaseUrl: String, private var cookie: String? = nu
     private fun parsePacket(p: JSONObject, owner: String): SignalMessage =
         com.tradingindicator.alerts.data.SignalPacket.parse(p, owner)
 
+    fun fetchAlertCatalog(): com.tradingindicator.alerts.data.AlertCatalog {
+        val req = builder("$baseUrl/api/alerts/catalog").get().build()
+        http.newCall(req).execute().use { response ->
+            if (response.code == 401) throw SessionExpiredException("Sign in required")
+            if (!response.isSuccessful) throw RuntimeException("Coin catalog returned HTTP ${response.code}")
+            return com.tradingindicator.alerts.data.AlertCatalog.parse(JSONObject(response.body?.string().orEmpty()))
+        }
+    }
+
     fun fetchFirebaseConfig(): FirebaseConfig {
         val req = builder("$baseUrl/api/android/config").get().build()
         http.newCall(req).execute().use { r ->
