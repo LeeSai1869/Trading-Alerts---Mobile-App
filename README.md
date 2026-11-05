@@ -104,3 +104,10 @@ direction, exact signal timestamp, price, confidence and opportunity-zone levels
 all match, even if separate server rules assigned different event IDs. Different
 candles or details remain separate. Raw history is retained, and incomplete or
 non-trading events are not merged just because they look similar.
+
+For missing live notifications after a successful direct test, run
+`tools/diagnose_android_push.py --backend /PATH/TO/BACKEND --owner USERNAME`
+using the backend's Python. It reads the queue database in read-only mode and
+reports mobile eligibility, expiry, cursors and retry counters without tokens,
+private configuration or raw error contents. No APK reinstall is needed for
+these laptop tools. Configuration readiness does not prove the live worker runs.
