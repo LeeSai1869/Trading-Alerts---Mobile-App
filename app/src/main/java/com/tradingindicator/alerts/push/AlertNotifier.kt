@@ -17,18 +17,23 @@ import java.util.Date
 import java.util.Locale
 
 object AlertNotifier {
-    fun show(context: Context, item: SignalMessage, direction: String?, sound: Boolean) {
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (!manager.areNotificationsEnabled()) return
-        val customSound = Prefs(context).customSoundUri?.takeIf { value ->
+    private fun customSound(context: Context): String? = Prefs(context).customSoundUri?.takeIf { value ->
             runCatching {
                 context.contentResolver.openAssetFileDescriptor(Uri.parse(value), "r")?.use { true } ?: false
             }.getOrDefault(false)
         }
-        val soundUri = customSound?.let(Uri::parse)
+
+    fun soundChannelId(context: Context): String {
+        val custom = customSound(context) ?: return "alerts_sound_v2"
+        return "alerts_custom_${java.security.MessageDigest.getInstance("SHA-256").digest(custom.toByteArray()).take(8).joinToString("") { "%02x".format(it) }}"
+    }
+
+    fun show(context: Context, item: SignalMessage, direction: String?, sound: Boolean) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (!manager.areNotificationsEnabled()) return
+        val soundUri = customSound(context)?.let(Uri::parse)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        val channelId = if (!sound) "alerts_silent" else if (customSound == null) "alerts_sound_v2"
-            else "alerts_custom_${java.security.MessageDigest.getInstance("SHA-256").digest(customSound.toByteArray()).take(8).joinToString("") { "%02x".format(it) }}"
+        val channelId = if (sound) soundChannelId(context) else "alerts_silent"
         if (manager.getNotificationChannel(channelId) == null) {
             val channel = NotificationChannel(
                 channelId,

@@ -25,8 +25,9 @@ the debug APK is intended for testing.
 
 ## Notifications
 
-Settings offers a local sound test, default/custom sound selection, and a shortcut
-to Android notification settings. Android channel settings, silent mode and Do Not
+Settings offers a local sound test, the phone’s native notification-tone picker,
+default/custom sound selection, a notification-volume readout, and shortcuts
+to Android sound settings and the active alert channel’s settings. Android channel settings, silent mode and Do Not
 Disturb take precedence. Existing muted channels remain under the user's control.
 Custom sound files use Android's document picker with persistent read permission.
 If access is lost, new notifications fall back to the default tone.

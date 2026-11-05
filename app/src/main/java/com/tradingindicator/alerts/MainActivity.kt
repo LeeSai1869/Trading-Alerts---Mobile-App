@@ -50,6 +50,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val pickPhoneToneLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            @Suppress("DEPRECATION")
+            val uri = result.data?.getParcelableExtra<android.net.Uri>(android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            if (uri != null) {
+                prefs.customSoundUri = if (android.media.RingtoneManager.isDefault(uri)) null else uri.toString()
+                Toast.makeText(this, "Notification tone selected", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
@@ -244,10 +255,14 @@ class MainActivity : AppCompatActivity() {
             setTypeface(typeface, Typeface.NORMAL)
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
-        val settingsBtn = Button(this).apply {
-            text = "Settings"
+        val settingsBtn = ImageButton(this).apply {
+            setImageResource(com.tradingindicator.alerts.R.drawable.ic_settings_24)
             contentDescription = "Settings"
-            layoutParams = LinearLayout.LayoutParams(-2, dp(48))
+            val backgroundValue = TypedValue()
+            theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, backgroundValue, true)
+            setBackgroundResource(backgroundValue.resourceId)
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
         }
         topBar.addView(title); topBar.addView(settingsBtn)
         lp.addView(topBar)
@@ -315,14 +330,44 @@ class MainActivity : AppCompatActivity() {
         
         lp.addView(coinBtn); lp.addView(tfBtn); lp.addView(soundBtn)
         lp.addView(Button(this).apply {
+            text = "Choose phone notification tone"
+            setOnClickListener {
+                val picker = Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)
+                    .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_NOTIFICATION)
+                    .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                    .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                    .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
+                        prefs.customSoundUri?.let(android.net.Uri::parse)
+                            ?: android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION))
+                try { pickPhoneToneLauncher.launch(picker) }
+                catch (_: android.content.ActivityNotFoundException) {
+                    Toast.makeText(this@MainActivity, "Use Android notification settings to choose a tone", Toast.LENGTH_LONG).show()
+                }
+            }
+        })
+        val audio = getSystemService(AUDIO_SERVICE) as android.media.AudioManager
+        lp.addView(TextView(this).apply {
+            text = "Notification volume: ${audio.getStreamVolume(android.media.AudioManager.STREAM_NOTIFICATION)}/${audio.getStreamMaxVolume(android.media.AudioManager.STREAM_NOTIFICATION)}. Android sound settings and Do Not Disturb control alert volume."
+        })
+        lp.addView(Button(this).apply {
+            text = "Phone sound and volume settings"
+            setOnClickListener { startActivity(Intent(android.provider.Settings.ACTION_SOUND_SETTINGS)) }
+        })
+        lp.addView(Button(this).apply {
             text = "Test notification sound"
             setOnClickListener { postTestNotification() }
         })
         lp.addView(Button(this).apply {
             text = "Android notification settings"
             setOnClickListener {
-                startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName))
+                val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+                val channel = AlertNotifier.soundChannelId(this@MainActivity)
+                val action = if (manager.getNotificationChannel(channel) != null)
+                    android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS
+                    else android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS
+                startActivity(Intent(action)
+                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+                    .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, AlertNotifier.soundChannelId(this@MainActivity)))
             }
         })
         lp.addView(Button(this).apply {
