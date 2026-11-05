@@ -21,6 +21,10 @@ class Prefs(ctx: Context) {
         get() = sp.getString("username", null)
         set(v) { sp.edit().putString("username", v).apply() }
 
+    var rememberMe: Boolean
+        get() = sp.getBoolean("remember_me", true)
+        set(value) { sp.edit().putBoolean("remember_me", value).apply() }
+
     var notificationsOn: Boolean
         get() = sp.getBoolean("notifications_on", true)
         set(v) { sp.edit().putBoolean("notifications_on", v).apply() }

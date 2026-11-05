@@ -7,14 +7,7 @@ import java.util.Locale
 /** Shared by the OS notification and the in-app inbox. */
 object AlertPresentation {
     /** Collapse only fully identified, identical trading signals; retain raw history. */
-    fun uniqueItems(items: List<SignalMessage>): List<SignalMessage> = items.distinctBy { item ->
-        if (item.direction in setOf("BUY", "SELL") && item.symbol.isNotBlank() &&
-            item.timeframe.isNotBlank() && item.receivedAt > 0) {
-            item.copy(id = "", hidden = false)
-        } else {
-            item.copy(hidden = false)
-        }
-    }
+    fun uniqueItems(items: List<SignalMessage>): List<SignalMessage> = items.distinctBy(AlertIdentity::messageKey)
 
     fun title(item: SignalMessage, direction: String? = item.direction): String = listOfNotNull(
         direction,

@@ -11,8 +11,8 @@ Use a full Java 21 JDK, Android SDK platform 36 and build-tools 34.0.0.
 ./gradlew exportDebugApk testDebugUnitTest
 ```
 
-The uniquely named installable package for v1.7 is
-`app/build/outputs/apk/share/TradingAlerts-1.7-build8.apk`.
+The uniquely named installable package for v1.8 is
+`app/build/outputs/apk/share/TradingAlerts-1.8-build9.apk`.
 `exportDebugApk` builds before copying and includes version and build number in
 the filename. Previous exported versions are retained.
 It includes app dependencies. Google Play services, notification permission,
@@ -118,8 +118,31 @@ offer manual refresh and retain the last successful list for the same server whe
 offline. Existing mute choices are preserved. A listed coin does not itself enable
 signal calculation or server delivery for that coin.
 
-Push signals older than five minutes by their actual signal timestamp are saved
+Push signals older than one minute by their actual signal timestamp are saved
 in history without posting a notification. This prevents a newly generated event
 for an old candle from sounding as a fresh trade. Where no signal timestamp exists,
 the existing sender creation timestamp is used. Previously delivered notifications
 are not withdrawn by the update.
+
+## Remembered sign-in
+
+The login screen's "Keep me signed in (30 days)" checkbox is selected by default.
+When checked, login requests the existing backend's persistent 30-day session.
+Its cookie is retained in the app's private preferences; the password is not saved.
+Remembered sessions survive backend restarts, but expire after 30 days and can be
+invalidated by server-side revocation or account credential changes. Unchecking
+uses the backend's ordinary eight-hour session, which does not survive a backend
+restart. Existing ordinary sessions require one new login with the checkbox enabled
+to become remembered sessions. Sign out removes the phone's saved cookie and username.
+
+The visible inbox observes Room database changes while the app is in the foreground.
+Push-saved messages appear without reopening the screen; returning from the background
+also refreshes laptop history silently. Leaving the inbox stops its observer.
+
+Notification receipts are saved locally with a unique signal identity. Duplicate
+FCM delivery (including multiple server device registrations) can update history
+but cannot claim a second notification for the same signal. Receipts survive app
+restarts and use owner, exact signal time, direction, pair, timeframe and full
+signal values; distinct signals remain separate. This does not change laptop
+registration records or the backend's own delivery expiry. Signals over one minute
+old are history-only, including delayed live signals.

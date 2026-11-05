@@ -67,6 +67,6 @@ object AlertNotifier {
             .setShowWhen(true)
             .setAutoCancel(true)
             .build()
-        manager.notify(item.id.hashCode(), notification)
+        manager.notify(com.tradingindicator.alerts.data.AlertIdentity.notificationKey(item), 0, notification)
     }
 }

@@ -15,6 +15,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.flow.collectLatest
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.messaging.FirebaseMessaging
@@ -31,6 +35,7 @@ import java.util.concurrent.TimeUnit
 class MainActivity : AppCompatActivity() {
     private lateinit var prefs: Prefs
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var inboxObservation: Job? = null
 
     companion object {
         private const val DEFAULT_BASE_URL = "https://jhanzeebs-macbook-pro.tail6076d9.ts.net"
@@ -95,18 +100,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLogin(message: String? = null) {
-        val lp = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(64, 128, 64, 64) }
+        inboxObservation?.cancel()
+        val loginScroll = ScrollView(this)
+        val lp = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(32), dp(24), dp(24))
+        }
+        loginScroll.addView(lp)
         val url = EditText(this).apply { hint = "https://jhanzeebs-macbook-pro.tail6076d9.ts.net" }
         val user = EditText(this).apply { hint = "username" }
         val pass = EditText(this).apply { hint = "password"; inputType = 0x00000081 }
+        val remember = CheckBox(this).apply {
+            text = "Keep me signed in (30 days)"
+            isChecked = prefs.rememberMe
+        }
         val btn = Button(this).apply { text = "Sign in" }
         val status = TextView(this).apply { setTextColor(Color.RED) }
         val networkNote = TextView(this).apply {
             text = "Enter your alert server’s HTTPS address. A public HTTPS address works without Tailscale; a private .ts.net address requires it."
             textSize = 14f
         }
-        lp.addView(TextView(this).apply { text = versionLabel(); textSize = 18f }); lp.addView(networkNote); lp.addView(url); lp.addView(user); lp.addView(pass); lp.addView(btn); lp.addView(status)
-        setContentView(lp)
+        lp.addView(TextView(this).apply { text = versionLabel(); textSize = 18f }); lp.addView(networkNote); lp.addView(url); lp.addView(user); lp.addView(pass); lp.addView(remember); lp.addView(btn); lp.addView(status)
+        setContentView(loginScroll)
         
         url.setText(prefs.baseUrl.ifBlank { DEFAULT_BASE_URL })
         status.text = message.orEmpty()
@@ -114,6 +129,8 @@ class MainActivity : AppCompatActivity() {
             val b = url.text.toString().trim().trimEnd('/')
             val username = user.text.toString()
             val password = pass.text.toString()
+            val keepSignedIn = remember.isChecked
+            prefs.rememberMe = keepSignedIn
             prefs.baseUrl = b
             status.text = "Checking server…"
             btn.isEnabled = false
@@ -122,7 +139,7 @@ class MainActivity : AppCompatActivity() {
                     val api = ApiClient(b)
                     api.checkLoginAvailability()
                     withContext(Dispatchers.Main) { status.text = "Signing in…" }
-                    val r = api.login(username, password)
+                    val r = api.login(username, password, keepSignedIn)
                     prefs.cookie = r.cookie
                     prefs.username = r.username
                     withContext(Dispatchers.Main) { showInbox() }
@@ -237,6 +254,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showInbox() {
+        inboxObservation?.cancel()
         val scroll = ScrollView(this)
         val lp = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -304,12 +322,13 @@ class MainActivity : AppCompatActivity() {
 
         settingsBtn.setOnClickListener { showSettingsMenu() }
         setContentView(scroll)
-        loadHistory(listContainer)
+        observeInbox(listContainer)
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun showSettingsMenu() {
+        inboxObservation?.cancel()
         val scroll = ScrollView(this)
         val lp = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -392,6 +411,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showSubSettings(titleStr: String, isCoin: Boolean) {
+        inboxObservation?.cancel()
         val scroll = ScrollView(this)
         val lp = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -462,7 +482,23 @@ class MainActivity : AppCompatActivity() {
         load()
     }
 
-    private fun loadHistory(container: LinearLayout) {
+    private fun observeInbox(container: LinearLayout) {
+        val owner = prefs.username ?: return
+        inboxObservation = lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Refresh on entering the foreground; push inserts update the same observed table.
+                loadHistory()
+                AppDatabase.get(this@MainActivity).signalDao().observeForOwner(owner).collectLatest { items ->
+                    if (prefs.username == owner && container.isAttachedToWindow) {
+                        val cutoff = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1)
+                        renderHistory(container, items.filter { it.receivedAt >= cutoff })
+                    }
+                }
+            }
+        }
+    }
+
+    private fun loadHistory() {
         val owner = prefs.username ?: return
         scope.launch {
             val dao = AppDatabase.get(this@MainActivity).signalDao()
@@ -470,17 +506,13 @@ class MainActivity : AppCompatActivity() {
             dao.normalizeLegacyTimestamps()
             dao.deleteOlderThan(oneDayAgo)
 
-            val cachedItems = dao.forOwner(owner).filter { it.receivedAt >= oneDayAgo }
-            withContext(Dispatchers.Main) { renderHistory(container, cachedItems) }
-
             try {
                 val api = ApiClient(prefs.baseUrl, prefs.cookie)
                 dao.insertAll(api.fetchHistory(owner))
-                val refreshedItems = dao.forOwner(owner).filter { it.receivedAt >= oneDayAgo }
-                withContext(Dispatchers.Main) { renderHistory(container, refreshedItems) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: SessionExpiredException) {
+                if (prefs.username != owner) return@launch
                 prefs.logout()
                 android.util.Log.i("HistoryDebug", "Saved sign-in expired")
                 withContext(Dispatchers.Main) {

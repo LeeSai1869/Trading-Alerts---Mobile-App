@@ -80,8 +80,8 @@ class ApiClient(private val rawBaseUrl: String, private var cookie: String? = nu
         return role == "user" || role == "admin"
     }
 
-    fun login(username: String, password: String): LoginResult {
-        val body = JSONObject().put("username", username).put("password", password).put("remember", false)
+    fun login(username: String, password: String, remember: Boolean): LoginResult {
+        val body = JSONObject().put("username", username).put("password", password).put("remember", remember)
             .toString().toRequestBody(json)
         val req = builder("$baseUrl/api/login").post(body).build()
         http.newCall(req).execute().use { r ->

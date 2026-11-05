@@ -20,12 +20,23 @@ class MessagingService : FirebaseMessagingService() {
         android.util.Log.i("AlertDelivery", "FCM received: priority=${msg.priority}, transportDelayMs=${if (msg.sentTime > 0) System.currentTimeMillis() - msg.sentTime else -1}, eventAgeMs=${System.currentTimeMillis() - item.receivedAt}")
         runBlocking { AppDatabase.get(this@MessagingService).signalDao().insertAll(listOf(item)) }
         if (!com.tradingindicator.alerts.data.NotificationPolicy.isFresh(item, System.currentTimeMillis())) {
-            android.util.Log.i("AlertDelivery", "History saved; notification suppressed because signal is over five minutes old")
+            android.util.Log.i("AlertDelivery", "History saved; notification suppressed because signal is over one minute old")
             return
         }
         if (item.symbol in prefs.mutedSymbols || item.timeframe in prefs.mutedTimeframes) return
         val sound = d["sound"] != "false" && prefs.soundOn
-        if (prefs.notificationsOn) AlertNotifier.show(this, item, direction, sound)
+        if (prefs.notificationsOn) {
+            val manager = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
+            if (!manager.areNotificationsEnabled()) return
+            val key = com.tradingindicator.alerts.data.AlertIdentity.notificationKey(item)
+            val firstDelivery = runBlocking {
+                val dao = AppDatabase.get(this@MessagingService).signalDao()
+                dao.deleteOldReceipts(System.currentTimeMillis() - 24 * 60 * 60 * 1000L)
+                dao.claimNotification(com.tradingindicator.alerts.data.NotificationReceipt(key, System.currentTimeMillis())) != -1L
+            }
+            if (firstDelivery) AlertNotifier.show(this, item, direction, sound)
+            else android.util.Log.i("AlertDelivery", "Repeated signal saved; duplicate notification suppressed")
+        }
     }
 
     override fun onNewToken(token: String) {
