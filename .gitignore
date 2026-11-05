@@ -1,0 +1,13 @@
+.DS_Store
+.gradle/
+.kotlin/
+.idea/
+**/build/
+local.properties
+.env
+.env.*
+*.jks
+*.keystore
+key.properties
+keystore.properties
+google-services.json
