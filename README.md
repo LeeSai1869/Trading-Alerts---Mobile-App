@@ -8,10 +8,13 @@ contains the Android receiver; the laptop still generates and sends alerts.
 Use a full Java 21 JDK, Android SDK platform 36 and build-tools 34.0.0.
 
 ```sh
-./gradlew assembleDebug testDebugUnitTest
+./gradlew exportDebugApk testDebugUnitTest
 ```
 
-The installable test package is `app/build/outputs/apk/debug/app-debug.apk`.
+The uniquely named installable package for v1.4 is
+`app/build/outputs/apk/share/TradingAlerts-1.4-build5.apk`.
+`exportDebugApk` builds before copying and includes version and build number in
+the filename. Previous exported versions are retained.
 It includes app dependencies. Google Play services, notification permission,
 internet access and a reachable backend are still required. No Firebase private
 key belongs in the APK. Firebase public configuration is fetched after login

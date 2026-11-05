@@ -12,8 +12,8 @@ android {
         applicationId = "com.tradingindicator.alerts"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
     }
 
     buildTypes {
@@ -46,4 +46,12 @@ dependencies {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
+}
+
+// Export a clearly versioned package so older app-debug.apk copies cannot be confused.
+tasks.register<Copy>("exportDebugApk") {
+    dependsOn("assembleDebug")
+    from(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
+    into(layout.buildDirectory.dir("outputs/apk/share"))
+    rename { "TradingAlerts-${android.defaultConfig.versionName}-build${android.defaultConfig.versionCode}.apk" }
 }
