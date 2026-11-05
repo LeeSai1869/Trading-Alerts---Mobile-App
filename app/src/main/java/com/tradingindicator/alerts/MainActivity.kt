@@ -65,6 +65,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun versionLabel(): String {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        return "Trading Alerts v${info.versionName}"
+    }
+
     private fun createBlueSwitch(text: String, isChecked: Boolean): SwitchCompat {
         return SwitchCompat(this).apply {
             this.text = text
@@ -89,7 +94,7 @@ class MainActivity : AppCompatActivity() {
             text = "Enter your alert server’s HTTPS address. A public HTTPS address works without Tailscale; a private .ts.net address requires it."
             textSize = 14f
         }
-        lp.addView(networkNote); lp.addView(url); lp.addView(user); lp.addView(pass); lp.addView(btn); lp.addView(status)
+        lp.addView(TextView(this).apply { text = versionLabel(); textSize = 18f }); lp.addView(networkNote); lp.addView(url); lp.addView(user); lp.addView(pass); lp.addView(btn); lp.addView(status)
         setContentView(lp)
         
         url.setText(prefs.baseUrl.ifBlank { DEFAULT_BASE_URL })
@@ -234,19 +239,15 @@ class MainActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(-1, dp(52))
         }
         val title = TextView(this).apply {
-            text = "Alerts"
-            textSize = 22f
+            text = versionLabel()
+            textSize = 18f
             setTypeface(typeface, Typeface.NORMAL)
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
-        val settingsBtn = ImageButton(this).apply {
-            setImageResource(com.tradingindicator.alerts.R.drawable.ic_settings_24)
+        val settingsBtn = Button(this).apply {
+            text = "Settings"
             contentDescription = "Settings"
-            val backgroundValue = TypedValue()
-            theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, backgroundValue, true)
-            setBackgroundResource(backgroundValue.resourceId)
-            setPadding(dp(12), dp(12), dp(12), dp(12))
-            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
+            layoutParams = LinearLayout.LayoutParams(-2, dp(48))
         }
         topBar.addView(title); topBar.addView(settingsBtn)
         lp.addView(topBar)
@@ -294,14 +295,19 @@ class MainActivity : AppCompatActivity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun showSettingsMenu() {
-        val lp = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(32, 96, 32, 32) }
-        setContentView(lp)
+        val scroll = ScrollView(this)
+        val lp = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(24), dp(16), dp(24))
+        }
+        scroll.addView(lp)
+        setContentView(scroll)
 
         val backBtn = Button(this).apply { text = "← Back to Alerts" }
         lp.addView(backBtn)
         backBtn.setOnClickListener { showInbox() }
 
-        lp.addView(TextView(this).apply { text = "Settings"; textSize = 24f; setPadding(0, 32, 0, 32) })
+        lp.addView(TextView(this).apply { text = "Settings · ${versionLabel()}"; textSize = 24f; setPadding(0, 32, 0, 32) })
 
         val coinBtn = Button(this).apply { text = "Manage Coins (Symbols)"; setPadding(0, 16, 0, 16) }
         val tfBtn = Button(this).apply { text = "Manage Timeframes"; setPadding(0, 16, 0, 16) }
